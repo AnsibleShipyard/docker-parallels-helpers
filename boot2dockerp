@@ -1,0 +1,160 @@
+#!/bin/bash
+# Author: Jason Giedymin <jason dot giedymin -at- gmail dot com>
+# License: Apache2
+# Desc: Simple script to help drive the boot2docker docker with
+#       parallels without much change.
+#
+# Install:
+#   ./boot2dockerp install
+#   ./boot2dockerp env
+#   # Follow instructions of the env command
+#   docker ps # should now work
+#
+#   Anytime you open a new shell, run:
+#     boot2dockerp env
+#
+#   For ease of use, supply boot2dockerp somewhere on your path.
+#
+#   Important Note:
+#     boot2docker has been deprecated in favor of docker-machine.
+#     Use the docker-machinep command which is part of this repo.
+#     https://github.com/JasonGiedymin/docker-parallels-helpers
+
+set -e
+
+# consider changing this var
+BOOT2DOCKER_PARALLELS=($PWD)
+
+function install() {
+  vagrant init parallels/boot2docker
+  vagrant up
+  vagrant ssh -c "sudo sh -c 'echo \"export DOCKER_TLS=no\" > /var/lib/boot2docker/profile'"
+  vagrant reload
+  vagrant halt
+
+  echo "boot2dockerp ready, see usage below:"
+  $0 usage
+}
+
+function install_old() {
+  cat <<EOF
+------------------------------------------------------------
+# Consider these instructions to allow this script to work
+vagrant plugin install vagrant-parallels
+cd ~ # or where you want to clone the boot2docker parallels box
+mkdir ~/boot2docker-parallels
+pushd ~/boot2docker-parallels
+vagrant init parallels/boot2docker
+vagrant up
+vagrant ssh -c "sudo sh -c 'echo \"export DOCKER_TLS=no\" > /var/lib/boot2docker/profile'"
+vagrant reload
+vagrant halt
+popd
+
+# Modify the script var BOOT2DOCKER_PARALLELS to where the
+# vagrantfile is.
+
+# re-run this tool
+$0 up
+------------------------------------------------------------
+EOF
+}
+
+function pre() {
+  echo "Preparing boot2docker parallels vm..."
+  pushd $BOOT2DOCKER_PARALLELS
+}
+
+function post() {
+  popd
+}
+
+function setEnv() {
+  unset DOCKER_TLS_VERIFY
+  export DOCKER_HOST="tcp://`vagrant ssh-config | sed -n "s/[ ]*HostName[ ]*//gp"`:2375"
+}
+
+function manualEnv() {
+  echo
+  echo "Please set the following in the current shell:"
+  echo "    unset DOCKER_TLS_VERIFY"
+  echo "    export DOCKER_HOST=$DOCKER_HOST"
+  echo
+}
+
+function dockerTest() {
+  sleep 2
+  time docker version
+  time docker ps
+  echo "Complete."
+  echo "See $BOOT2DOCKER_PARALLELS/README.md for instructions if errors occur."
+}
+
+function env() {
+  pre
+  setEnv
+  dockerTest
+  post
+}
+
+function status() {
+  pre
+  vagrant status
+  post
+}
+
+function up() {
+  pre
+  vagrant up
+  setEnv
+  dockerTest
+  post
+}
+
+function down() {
+  pre
+  vagrant halt
+  post
+}
+
+function destroy() {
+  pre
+  echo "Press any key to continue with destroy..."
+  read
+  post
+}
+
+function usage() {
+cat <<EOF
+$0 {up|down|halt|destroy|usage|env|install}
+EOF
+}
+
+case "$1" in
+  up)
+    time up
+    ;;
+  down|halt)
+    time down
+    ;;
+  destroy)
+    destroy
+   ;;
+  usage)
+    usage
+    ;;
+  env)
+    env
+    manualEnv
+    ;;
+  status)
+    status
+    ;;
+  install)
+    install
+    ;;
+  *)
+    echo "Command '$1' unknown."
+    usage
+    ;;
+esac

@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Modify any of these as you will
+export PARALLELS_CPU_COUNT=1
+export PARALLELS_DISK_SIZE=20000
+export PARALLELS_MEMORY_SIZE=1024
+
+case $1 in
+  # env)
+  #   shift
+  #   docker-machine-parallels env $@
+  #   ;;
+  create)
+    shift 1
+    docker-machine-parallels create --driver=parallels $@
+    ;;
+  *)
+    docker-machine-parallels $@
+    ;;
+esac
